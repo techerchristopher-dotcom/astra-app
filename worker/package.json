@@ -1,0 +1,25 @@
+{
+  "name": "astra-ai-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cloudflare Worker proxy entre l'app Expo et OpenAI. Vérifie l'auth Firebase, rate-limit, et stream les réponses gpt-4o-mini.",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "secret:openai": "wrangler secret put OPENAI_API_KEY",
+    "secret:project": "wrangler secret put FIREBASE_PROJECT_ID",
+    "kv:create": "wrangler kv namespace create RATE_LIMIT_KV"
+  },
+  "dependencies": {
+    "firebase-auth-cloudflare-workers": "^2.0.6",
+    "hono": "^4.6.14",
+    "openai": "^4.77.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.99.0"
+  }
+}

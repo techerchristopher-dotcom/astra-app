@@ -4,7 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { C, FONT, TODAY_FR } from "../theme";
 import { GhostButton, LockBadge } from "../components/Buttons";
-import { callClaude } from "../api/claude";
+import { fetchHoroscope } from "../api/astra";
 import { useAuth } from "../contexts/AuthContext";
 import { getTodayHoroscope, saveTodayHoroscope } from "../services/horoscopeService";
 
@@ -74,22 +74,11 @@ export default function Horoscope({ sign, name, horoscopeData, setHoroscopeData,
     setErrorMsg("");
     setDisplayed({ amour: "", travail: "", energie: "", conseil: "" });
     try {
-      const txt = await callClaude({
-        system: `Tu es Astra, une astrologue IA bienveillante, mystérieuse et légèrement directe. Tu parles exclusivement en français.
-RÈGLE : Réponds UNIQUEMENT avec du JSON valide, aucun texte avant ou après, aucun backtick.
-Format : {"amour":"...","travail":"...","energie":"...","conseil":"...","score":7,"momentCle":"..."}
-- Chaque section : 2-3 phrases PRÉCISES, jamais vagues. Mentionne des planètes réelles.
-- momentCle : 1 phrase percutante, mystérieuse (style "Tu ressens un tiraillement...")
-- score : entier 1-10
-- Ton : chaleureux mais direct, jamais alarmiste`,
-        messages: [
-          {
-            role: "user",
-            content: `Horoscope du jour pour ${name || "l'utilisateur"}, signe ${sign.name}. Date : ${TODAY_FR}.`,
-          },
-        ],
+      const parsed = await fetchHoroscope({
+        name: name || "",
+        signName: sign.name,
+        today: TODAY_FR,
       });
-      const parsed = JSON.parse(txt.trim());
       setHoroscopeData(parsed);
       setStatus("success");
 

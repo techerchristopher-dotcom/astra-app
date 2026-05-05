@@ -1,0 +1,19 @@
+name = "astra-ai-worker"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# La variable FIREBASE_PROJECT_ID est aussi passée via `wrangler secret`.
+# Pour le rate limit, on utilise un KV namespace : remplace `id` par celui retourné par
+# `wrangler kv namespace create RATE_LIMIT_KV` après le premier déploiement.
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "8656f1a653f642c6bf27fd1c4c6aaf2a"
+
+[observability]
+enabled = true
+
+[vars]
+# Limites par défaut. Modifiables sans redeploy via dashboard Cloudflare.
+RATE_LIMIT_PER_MINUTE = "20"
+ALLOWED_ORIGINS = "*"

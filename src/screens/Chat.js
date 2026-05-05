@@ -12,7 +12,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { C, FONT, TODAY_FR } from "../theme";
 import { GoldButton, PremiumBadge } from "../components/Buttons";
-import { callClaude } from "../api/claude";
+import { streamChat } from "../api/astra";
 import { useAuth } from "../contexts/AuthContext";
 import { addMessage, subscribeMessages } from "../services/messageService";
 
@@ -94,32 +94,29 @@ export default function Chat({ sign, name, go }) {
       content: m.content,
     }));
 
+    setTyping("");
     try {
-      const reply = await callClaude({
-        system: `Tu es Astra, une astrologue IA francophone, mystérieuse, bienveillante et légèrement directe.
-${sign ? `L'utilisateur est ${sign.name}.` : ""} Nous sommes le ${TODAY_FR}.
-Réponds en français. Maximum 100 mots. Direct et personnel. Commence par une phrase d'accroche liée à son signe.
-Style : émotionnellement intelligent, jamais banal, jamais vague.`,
-        messages: allMessages,
+      const finalReply = await streamChat({
+        history: allMessages,
+        signName: sign?.name,
+        today: TODAY_FR,
+        onDelta: (chunk) => {
+          setTyping((prev) => prev + chunk);
+        },
       });
-      const finalReply = reply || "Les astres sont silencieux…";
-
-      let i = 0;
+      const replyText = finalReply || "Les astres sont silencieux…";
       setTyping("");
-      const iv = setInterval(() => {
-        i++;
-        setTyping(finalReply.slice(0, i));
-        if (i >= finalReply.length) {
-          clearInterval(iv);
-          setTyping("");
-          addMessage(user.uid, { role: "assistant", content: finalReply }).catch(() => {});
-          setLoading(false);
-        }
-      }, 18);
+      await addMessage(user.uid, { role: "assistant", content: replyText }).catch(() => {});
+      setLoading(false);
     } catch (e) {
+      setTyping("");
+      const friendly =
+        e?.message?.includes("Rate limit")
+          ? "Tu poses trop de questions trop vite ✨ Patiente quelques secondes."
+          : "Une erreur s'est produite. Réessaie ✦";
       addMessage(user.uid, {
         role: "assistant",
-        content: "Une erreur s'est produite. Réessaie ✦",
+        content: friendly,
       }).catch(() => {});
       setLoading(false);
     }

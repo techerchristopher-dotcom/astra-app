@@ -1,7 +1,20 @@
 # Astra — App Horoscope IA Francophone
 
-App mobile **Expo React Native** (SDK 54) avec backend **Firebase** (Auth + Firestore).
-Horoscopes générés par Claude API.
+App mobile **Expo React Native** (SDK 54) avec backend **Firebase** (Auth + Firestore)
+et un proxy IA **Cloudflare Worker** (`worker/`) qui appelle **OpenAI gpt-4o-mini**.
+
+## Architecture haut niveau
+
+```
+App Expo  ──(Bearer JWT Firebase)──▶  Cloudflare Worker  ──▶  OpenAI gpt-4o-mini
+        ◀──── SSE stream ───────────                    ◀──
+        │
+        └─── Firebase Auth + Firestore (users, messages, horoscopes)
+```
+
+Pourquoi un worker ? La clé OpenAI ne doit **jamais** vivre dans le bundle de l'app
+(elle serait extraite par n'importe qui). Le worker tient la clé côté serveur,
+vérifie l'auth Firebase et applique un rate limit.
 
 ## Prérequis
 
@@ -15,7 +28,10 @@ Horoscopes générés par Claude API.
 npm install
 ```
 
-Le fichier `.env` doit contenir tes vraies clés. Vérifie qu'il existe à la racine et que `EXPO_PUBLIC_ANTHROPIC_API_KEY` n'est pas un placeholder.
+Le fichier `.env` doit contenir tes vraies clés Firebase **et** l'URL du worker
+(`EXPO_PUBLIC_WORKER_URL`). Vois `.env.example` pour la liste complète.
+
+Pour le worker IA, suis le guide `worker/README.md` (déploiement one-shot ~10 min).
 
 ```bash
 cat .env  # vérification
@@ -49,7 +65,7 @@ npx expo start --tunnel
 ### Configuration `.env`
 
 ```
-EXPO_PUBLIC_ANTHROPIC_API_KEY=sk-ant-...
+EXPO_PUBLIC_WORKER_URL=https://astra-ai-worker.<account>.workers.dev
 EXPO_PUBLIC_FIREBASE_API_KEY=...
 EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=astraia-f2263.firebaseapp.com
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=astraia-f2263
@@ -57,6 +73,9 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=astraia-f2263.firebasestorage.app
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 EXPO_PUBLIC_FIREBASE_APP_ID=...
 ```
+
+⚠️ **Plus aucune clé API d'IA dans le bundle.** Toute la conversation passe par
+le Cloudflare Worker (`worker/`) qui authentifie chaque requête via JWT Firebase.
 
 Le `.env` est dans `.gitignore` — ne le commit jamais.
 
@@ -143,15 +162,14 @@ src/
 
 ## ⚠️ Sécurité — points connus
 
-1. **Clé Anthropic exposée** : `EXPO_PUBLIC_ANTHROPIC_API_KEY` est incluse dans le bundle JS. À déplacer derrière une Cloud Function (plan Blaze) avant publication en store.
-2. **Mock Premium** : les boutons "Débloquer" / "Commencer à X€/mois" n'effectuent **aucun paiement** et ne flippent pas `isPremium`. À brancher sur Stripe + Cloud Function plus tard. Pour tester l'UI premium, modifier `users/{uid}.isPremium = true` directement dans la console Firebase.
-3. **Pas de rate limiting** sur l'appel Claude. Un user malicieux peut consommer ta quota Anthropic. Idem, à régler avec Cloud Function.
+1. **Mock Premium** : les boutons "Débloquer" / "Commencer à X€/mois" n'effectuent **aucun paiement** et ne flippent pas `isPremium`. À brancher sur Stripe + Cloud Function plus tard. Pour tester l'UI premium, modifier `users/{uid}.isPremium = true` directement dans la console Firebase.
+2. **Clé Firebase Web exposée** dans le bundle, c'est **normal et attendu** par Firebase (la sécurité repose sur les Firestore rules + Auth, pas sur la clé). Mais elle doit être restreinte par domaine/bundle ID dans Google Cloud Console.
 
 ## Prochaines étapes
 
-- Cloud Function `askClaude` + secret `ANTHROPIC_KEY` (plan Blaze)
-- Stripe pour vrai abonnement (mensuel + annuel)
-- Calcul streak côté Cloud Function (plus fiable que côté client)
+- Stripe pour vrai abonnement (mensuel + annuel) via webhook → `users/{uid}.isPremium`
+- Calcul streak côté worker (plus fiable que côté client)
 - Notifications push quotidiennes (`expo-notifications`)
 - Google / Apple Sign-In (nécessite Dev Build EAS)
 - Reset password / vérification email
+- Cache horoscope du jour en KV (1 entrée par signe/jour) pour diviser par 12 le coût OpenAI
