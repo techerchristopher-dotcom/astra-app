@@ -33,4 +33,13 @@ export const TODAY_FR = new Date()
   .toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
   .toUpperCase();
 
+/** YYYY-MM-DD fuseau local (mis à jour à chaque appel). */
+export function getTodayLocalKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export const TODAY_ISO = new Date().toISOString().split("T")[0];

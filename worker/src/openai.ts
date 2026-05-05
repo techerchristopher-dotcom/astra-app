@@ -14,7 +14,7 @@ export function getOpenAI(apiKey: string): OpenAI {
  */
 export async function generateHoroscope(
   openai: OpenAI,
-  args: { name: string; signName: string; today: string }
+  args: { signName: string; today: string }
 ): Promise<{
   amour: string;
   travail: string;
@@ -37,11 +37,12 @@ Format strict : {"amour":"...","travail":"...","energie":"...","conseil":"...","
 - Chaque section : 2-3 phrases PRÉCISES, jamais vagues. Mentionne des planètes réelles.
 - momentCle : 1 phrase percutante, mystérieuse (style "Tu ressens un tiraillement...").
 - score : entier 1-10.
+- Ne jamais inclure de prénom ni de nom propre : le texte est identique pour toutes les personnes du même signe aujourd'hui.
 - Ton : chaleureux mais direct, jamais alarmiste.`,
       },
       {
         role: "user",
-        content: `Horoscope du jour pour ${args.name || "l'utilisateur"}, signe ${args.signName}. Date : ${args.today}.`,
+        content: `Horoscope du jour pour le signe ${args.signName} uniquement (même contenu pour toute personne de ce signe aujourd'hui, sans prénom). Date affichée côté app : ${args.today}.`,
       },
     ],
   });

@@ -1,8 +1,14 @@
 import { Hono } from "hono";
+import type { Context, Next } from "hono";
 import { cors } from "hono/cors";
 import { extractBearer, verifyFirebaseIdToken } from "./auth";
 import { checkRateLimit } from "./ratelimit";
 import { generateHoroscope, getOpenAI, streamChat } from "./openai";
+import {
+  horoscopeKvKey,
+  horoscopeKvTtlSeconds,
+  isValidDateKey,
+} from "./horoscopeCache";
 
 type Bindings = {
   OPENAI_API_KEY: string;
@@ -16,7 +22,9 @@ type Variables = {
   uid: string;
 };
 
-const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+type AppEnv = { Bindings: Bindings; Variables: Variables };
+
+const app = new Hono<AppEnv>();
 
 app.use("*", async (c, next) => {
   const origins = c.env.ALLOWED_ORIGINS || "*";
@@ -39,10 +47,7 @@ app.get("/", (c) =>
 /**
  * Middleware d'auth + rate limit. Place `uid` dans le contexte Hono.
  */
-async function authAndLimit(
-  c: Parameters<Parameters<typeof app.post>[1]>[0],
-  next: () => Promise<void>
-) {
+async function authAndLimit(c: Context<AppEnv>, next: Next) {
   const token = extractBearer(c.req.raw);
   if (!token) {
     return c.json({ error: "Missing Authorization Bearer token" }, 401);
@@ -78,29 +83,45 @@ async function authAndLimit(
 
 /**
  * POST /horoscope
- * Body: { name: string, signName: string, today: string }
+ * Body: { dateKey: "YYYY-MM-DD", signName: string, today: string (affichage FR) }
  * Auth: Bearer <Firebase ID token>
- * Réponse: JSON { amour, travail, energie, conseil, score, momentCle }
+ * Réponse: JSON + header X-Horoscope-Cache: HIT | MISS
  */
 app.post("/horoscope", authAndLimit, async (c) => {
-  let body: { name?: string; signName?: string; today?: string };
+  let body: { dateKey?: string; signName?: string; today?: string };
   try {
     body = await c.req.json();
   } catch {
     return c.json({ error: "Body JSON invalide" }, 400);
   }
 
-  if (!body.signName || !body.today) {
-    return c.json({ error: "Champs requis: signName, today" }, 400);
+  const dateKey = body.dateKey?.trim();
+  if (!body.signName || !body.today || !dateKey || !isValidDateKey(dateKey)) {
+    return c.json(
+      { error: "Champs requis: signName, today, dateKey (format YYYY-MM-DD)" },
+      400
+    );
   }
 
+  const kv = c.env.RATE_LIMIT_KV;
+  const cacheKey = horoscopeKvKey(dateKey, body.signName);
+
   try {
+    const cached = await kv.get(cacheKey);
+    if (cached) {
+      c.header("X-Horoscope-Cache", "HIT");
+      return c.json(JSON.parse(cached));
+    }
+
     const openai = getOpenAI(c.env.OPENAI_API_KEY);
     const result = await generateHoroscope(openai, {
-      name: body.name || "",
       signName: body.signName,
       today: body.today,
     });
+    await kv.put(cacheKey, JSON.stringify(result), {
+      expirationTtl: horoscopeKvTtlSeconds(dateKey),
+    });
+    c.header("X-Horoscope-Cache", "MISS");
     return c.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "OpenAI error";

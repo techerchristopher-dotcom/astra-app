@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
-import { C, FONT, TODAY_FR } from "../theme";
+import { C, FONT, TODAY_FR, getTodayLocalKey } from "../theme";
 import { GhostButton, LockBadge } from "../components/Buttons";
 import { fetchHoroscope } from "../api/astra";
 import { useAuth } from "../contexts/AuthContext";
@@ -75,9 +75,9 @@ export default function Horoscope({ sign, name, horoscopeData, setHoroscopeData,
     setDisplayed({ amour: "", travail: "", energie: "", conseil: "" });
     try {
       const parsed = await fetchHoroscope({
-        name: name || "",
         signName: sign.name,
         today: TODAY_FR,
+        dateKey: getTodayLocalKey(),
       });
       setHoroscopeData(parsed);
       setStatus("success");

@@ -27,9 +27,9 @@ async function getIdToken() {
 
 /**
  * Génère l'horoscope du jour. Réponse JSON complète (pas de stream, c'est court).
- * Renvoie : { amour, travail, energie, conseil, score, momentCle }
+ * @param args.dateKey   YYYY-MM-DD (jour civil pour le cache global par signe)
  */
-export async function fetchHoroscope({ name, signName, today }) {
+export async function fetchHoroscope({ signName, today, dateKey }) {
   const token = await getIdToken();
   const res = await expoFetch(`${getWorkerUrl()}/horoscope`, {
     method: "POST",
@@ -37,7 +37,7 @@ export async function fetchHoroscope({ name, signName, today }) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ name, signName, today }),
+    body: JSON.stringify({ signName, today, dateKey }),
   });
 
   if (!res.ok) {

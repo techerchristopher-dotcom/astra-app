@@ -11,11 +11,12 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { getTodayLocalKey } from "../theme";
 
 const horoscopesCol = (uid) => collection(db, "users", uid, "horoscopes");
 
 function todayId() {
-  return new Date().toISOString().split("T")[0];
+  return getTodayLocalKey();
 }
 
 export async function getTodayHoroscope(uid) {

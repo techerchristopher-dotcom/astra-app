@@ -128,16 +128,20 @@ data: [DONE]
 
 ### `POST /horoscope`
 
-Réponse JSON synchrone.
+Réponse JSON synchrone. **Cache KV** : pour une paire `(dateKey, signName)` donnée, la première requête du jour appelle OpenAI ; les suivantes (tous utilisateurs confondus) renvoient le même JSON. En-tête **`X-Horoscope-Cache`** : `HIT` ou `MISS`.
 
 **Body** :
 ```json
 {
-  "name": "Christopher",
   "signName": "Scorpion",
-  "today": "lundi 5 mai 2026"
+  "today": "MARDI 5 MAI",
+  "dateKey": "2026-05-05"
 }
 ```
+
+- `dateKey` : obligatoire, format **`YYYY-MM-DD`** (jour civil pour la clé de cache).
+- `today` : libellé affiché dans l’app (souvent en français).
+- Le prénom n’est plus utilisé : l’horoscope est **partagé** par signe et par jour.
 
 **Réponse** :
 ```json
@@ -181,4 +185,4 @@ Affiche les requêtes en temps réel.
 - [ ] Migrer le rate limit vers Durable Objects (cohérence forte)
 - [ ] Ajouter une route `/admin/usage` pour exposer un dashboard conso
 - [ ] Logger les conversations dans Firestore depuis le worker (signed token)
-- [ ] Cache des horoscopes du jour en KV (1 par signe/jour) → division par 12 du coût OpenAI
+- [x] Cache des horoscopes du jour en KV (1 par signe/jour) → coût OpenAI divisé
